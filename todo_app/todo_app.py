@@ -8,7 +8,6 @@ class State(rx.State):
     todos: list[dict] = []
     new_todo: str = ""
 
-    # Editing fields (still present, but not used in UI)
     edit_index: int = -1
     edit_text: str = ""
 
@@ -154,6 +153,7 @@ def index() -> rx.Component:
                                 color=rx.cond(todo["completed"], "gray", "black")
                             ),
                             rx.button("Edit", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/edit_details")], color_scheme="yellow", size="2"),
+                            rx.button("View", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/view_details")], color_scheme="blue", size="2"),
                             rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
                             rx.button("Toggle", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
                             spacing="3"
@@ -212,7 +212,33 @@ def edit_details() -> rx.Component:
         )
     )
 
-# 4. Register pages
+# 4. View Details Page
+def view_details() -> rx.Component:
+    return rx.container(
+        rx.heading("View Details", size="7"),
+        rx.cond(
+            State.selected_todo.is_not_none(),
+            rx.vstack(
+                rx.text(f"Title: {State.selected_todo['text']}", size="5"),
+                rx.text(f"Description: {State.selected_todo['description']}", size="4"),
+                rx.text(
+                    rx.cond(
+                        State.selected_todo["completed"],
+                        "Completed: ✅",
+                        "Completed: ❌"
+                    ),
+                    size="4",
+                    color="gray"
+                ),
+                rx.button("Back", on_click=lambda: rx.redirect("/"), color_scheme="gray"),
+                spacing="4"
+            ),
+            rx.text("No task selected.")
+        )
+    )
+
+# 5. Register pages
 app = rx.App()
 app.add_page(index, title="Todo App")
 app.add_page(edit_details, route="/edit_details", title="Edit Details")
+app.add_page(view_details, route="/view_details", title="View Details")
