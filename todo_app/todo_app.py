@@ -21,17 +21,34 @@ class State(rx.State):
     def set_edit_text(self, value: str):
         self.edit_text = value
 
+    def set_selected_text(self, value: str):
+        if self.selected_todo:
+            self.selected_todo["text"] = value
+
+    def set_selected_description(self, value: str):
+        if self.selected_todo:
+            self.selected_todo["description"] = value
+
+    def set_selected_completed(self, value: bool):
+        if self.selected_todo:
+            self.selected_todo["completed"] = value
+
     def load_todos(self):
         with rx.session() as session:
             self.todos = [
-                {"id": todo.id, "text": todo.text, "completed": todo.completed}
+                {
+                    "id": todo.id,
+                    "text": todo.text,
+                    "description": todo.description,
+                    "completed": todo.completed
+                }
                 for todo in session.exec(select(Todo)).all()
             ]
 
     def add_todo(self):
         if self.new_todo.strip():
             with rx.session() as session:
-                session.add(Todo(text=self.new_todo.strip(), completed=False))
+                session.add(Todo(text=self.new_todo.strip(), description="", completed=False))
                 session.commit()
             self.new_todo = ""
             self.load_todos()
@@ -82,13 +99,36 @@ class State(rx.State):
                 self.selected_todo = {
                     "id": todo.id,
                     "text": todo.text,
+                    "description": todo.description,
                     "completed": todo.completed
                 }
+
+    def save_selected_todo(self):
+        if self.selected_todo:
+            with rx.session() as session:
+                todo = session.get(Todo, self.selected_todo["id"])
+                if todo:
+                    todo.text = self.selected_todo["text"]
+                    todo.description = self.selected_todo["description"]
+                    todo.completed = self.selected_todo["completed"]
+                    session.commit()
+            self.selected_todo = None
+            rx.redirect("/")
+
+    def delete_selected_todo(self):
+        if self.selected_todo:
+            with rx.session() as session:
+                todo = session.get(Todo, self.selected_todo["id"])
+                if todo:
+                    session.delete(todo)
+                    session.commit()
+            self.selected_todo = None
+            rx.redirect("/")
 
     def on_mount(self):
         self.load_todos()
 
-# 2. Main UI for the todo app
+# 2. Main UI
 def index() -> rx.Component:
     return rx.container(
         rx.color_mode.button(position="top-right"),
@@ -101,11 +141,7 @@ def index() -> rx.Component:
                     on_change=lambda e: State.set_new_todo(e),
                     width="300px",
                 ),
-                rx.button(
-                    "Add",
-                    on_click=State.add_todo,
-                    color_scheme="green",
-                ),
+                rx.button("Add", on_click=State.add_todo, color_scheme="green"),
             ),
             rx.vstack(
                 rx.foreach(
@@ -148,16 +184,8 @@ def index() -> rx.Component:
                     on_change=lambda e: State.set_edit_text(e)
                 ),
                 rx.hstack(
-                    rx.button(
-                        "Save",
-                        color_scheme="blue",
-                        on_click=State.save_edit
-                    ),
-                    rx.button(
-                        "Cancel",
-                        color_scheme="gray",
-                        on_click=State.cancel_edit
-                    )
+                    rx.button("Save", color_scheme="blue", on_click=State.save_edit),
+                    rx.button("Cancel", color_scheme="gray", on_click=State.cancel_edit)
                 ),
                 spacing="4"
             ),
@@ -166,35 +194,43 @@ def index() -> rx.Component:
         on_mount=State.on_mount,
     )
 
-# 3. Details Page
+# 3. Enhanced Details Page
 def details() -> rx.Component:
     return rx.container(
-        rx.heading("Todo Details", size="7"),
-        rx.text(
-            rx.cond(
-                State.selected_todo.is_not_none(),
-                f"ID: {State.selected_todo['id']}",
-                "No todo selected"
-            )
-        ),
-        rx.text(
-            rx.cond(
-                State.selected_todo.is_not_none(),
-                f"Text: {State.selected_todo['text']}",
-                ""
-            )
-        ),
-        rx.text(
-            rx.cond(
-                State.selected_todo.is_not_none() & State.selected_todo["completed"],
-                "Completed: ✅",
-                "Completed: ❌"
-            )
-        ),
-        rx.button("Back", on_click=lambda: rx.redirect("/"), margin_top="20px")
+        rx.heading("Task Details", size="7"),
+        rx.cond(
+            State.selected_todo.is_not_none(),
+            rx.vstack(
+                rx.input(
+                    value=State.selected_todo["text"],
+                    on_change=lambda e: State.set_selected_text(e),
+                    placeholder="Task title",
+                    width="100%"
+                ),
+                rx.text_area(
+                    value=State.selected_todo["description"],
+                    on_change=lambda e: State.set_selected_description(e),
+                    placeholder="Task description",
+                    width="100%",
+                    height="100px"
+                ),
+                rx.checkbox(
+                    label="Completed",
+                    is_checked=State.selected_todo["completed"],
+                    on_change=lambda e: State.set_selected_completed(e)
+                ),
+                rx.hstack(
+                    rx.button("Save", on_click=State.save_selected_todo, color_scheme="blue"),
+                    rx.button("Delete", on_click=State.delete_selected_todo, color_scheme="red"),
+                    rx.button("Back", on_click=lambda: rx.redirect("/"), color_scheme="gray")
+                ),
+                spacing="4"
+            ),
+            rx.text("No task selected.")
+        )
     )
 
 # 4. Register pages
 app = rx.App()
 app.add_page(index, title="Todo App")
-app.add_page(details, route="/details", title="Todo Details")
+app.add_page(details, route="/details", title="Task Details")
