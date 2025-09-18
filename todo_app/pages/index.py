@@ -26,31 +26,28 @@ def index() -> rx.Component:
                 ),
                 rx.button("Add", on_click=State.add_todo, color_scheme="green"),
             ),
-            # List of all tasks
+            # List of all tasks with up/down buttons for reordering
             rx.vstack(
                 rx.foreach(
                     State.todos,
-                    # For each task, show its info and buttons
                     lambda todo, i: rx.vstack(
                         rx.hstack(
-                            # Task text, styled if completed
                             rx.text(
                                 todo["text"],
                                 size="5",
                                 text_decoration=rx.cond(todo["completed"], "line-through", "none"),
                                 color=rx.cond(todo["completed"], "gray", "black")
                             ),
-                            # Edit button
                             rx.button("Edit", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/edit_details")], color_scheme="yellow", size="2"),
-                            # View button
                             rx.button("View", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/view_details")], color_scheme="blue", size="2"),
-                            # Remove button
                             rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
-                            # Toggle completed button
                             rx.button("Toggle", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
+                            # Up button
+                            rx.button("↑", on_click=lambda: State.move_todo_up(i), is_disabled=(i == 0), size="2"),
+                            # Down button
+                            rx.button("↓", on_click=lambda: State.move_todo_down(i), is_disabled=(i == State.todos.length() - 1), size="2"),
                             spacing="3"
                         ),
-                        # Show if the task is completed
                         rx.cond(
                             todo["completed"],
                             rx.text("Completed: ✅", size="3", color="gray"),

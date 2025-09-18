@@ -6,6 +6,33 @@ import os
 
 # This is the main class that keeps track of all the app's data and logic.
 class State(rx.State):
+    # Move a todo up in the order
+    def move_todo_up(self, index: int):
+        if index > 0:
+            todos = self.todos.copy()
+            # Swap order values
+            id1, id2 = todos[index]["id"], todos[index-1]["id"]
+            with rx.session() as session:
+                todo1 = session.get(Todo, id1)
+                todo2 = session.get(Todo, id2)
+                if todo1 and todo2:
+                    todo1.order, todo2.order = todo2.order, todo1.order
+                session.commit()
+            self.load_todos()
+
+    # Move a todo down in the order
+    def move_todo_down(self, index: int):
+        if index < len(self.todos) - 1:
+            todos = self.todos.copy()
+            # Swap order values
+            id1, id2 = todos[index]["id"], todos[index+1]["id"]
+            with rx.session() as session:
+                todo1 = session.get(Todo, id1)
+                todo2 = session.get(Todo, id2)
+                if todo1 and todo2:
+                    todo1.order, todo2.order = todo2.order, todo1.order
+                session.commit()
+            self.load_todos()
     # List of all tasks (each task is a dictionary)
     todos: list[dict] = []
     # The text for a new task being typed
@@ -52,7 +79,7 @@ class State(rx.State):
                 f.write(file.content)
             self.selected_todo["image"] = file.name
 
-    # Load all tasks from the database and update the list
+    # Load all tasks from the database and update the list, ordered by 'order' field
     def load_todos(self):
         with rx.session() as session:
             self.todos = [
@@ -61,19 +88,35 @@ class State(rx.State):
                     "text": todo.text,
                     "description": todo.description,
                     "completed": todo.completed,
-                    "image": getattr(todo, "image", "")
+                    "image": getattr(todo, "image", ""),
+                    "order": getattr(todo, "order", 0)
                 }
-                for todo in session.exec(select(Todo)).all()
+                for todo in session.exec(select(Todo).order_by(Todo.order)).all()
             ]
 
     # Add a new task to the database and update the list
     def add_todo(self):
         if self.new_todo.strip():
             with rx.session() as session:
-                session.add(Todo(text=self.new_todo.strip(), description="", completed=False))
+                # Determine the next order value
+                max_order = session.exec(select(Todo.order)).all()
+                next_order = max(max_order) + 1 if max_order else 0
+                session.add(Todo(text=self.new_todo.strip(), description="", completed=False, order=next_order))
                 session.commit()
             self.new_todo = ""
             self.load_todos()
+    # Reorder todos after drag-and-drop and persist new order in DB
+    def reorder_todos(self, new_order_list: list[int]):
+        """
+        new_order_list: list of todo IDs in the new order
+        """
+        with rx.session() as session:
+            for idx, todo_id in enumerate(new_order_list):
+                todo = session.get(Todo, todo_id)
+                if todo:
+                    todo.order = idx
+            session.commit()
+        self.load_todos()
 
     # Remove a task from the database and update the list
     def remove_todo(self, index: int):
