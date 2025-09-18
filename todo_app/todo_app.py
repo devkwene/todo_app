@@ -8,8 +8,15 @@ class State(rx.State):
     todos: list[dict] = []  # Store todos as plain dictionaries
     new_todo: str = ""      # Current input value
 
+    # Fields for editing
+    edit_index: int = -1
+    edit_text: str = ""
+
     def set_new_todo(self, value: str):
         self.new_todo = value
+
+    def set_edit_text(self, value: str):
+        self.edit_text = value
 
     def load_todos(self):
         with rx.session() as session:
@@ -35,6 +42,35 @@ class State(rx.State):
                     session.delete(todo)
                     session.commit()
             self.load_todos()
+
+    def start_edit(self, index: int):
+        self.edit_index = index
+        self.edit_text = self.todos[index]["text"]
+
+    def save_edit(self):
+        if 0 <= self.edit_index < len(self.todos):
+            todo_id = self.todos[self.edit_index]["id"]
+            with rx.session() as session:
+                todo = session.get(Todo, todo_id)
+                if todo:
+                    todo.text = self.edit_text
+                    session.commit()
+            self.edit_index = -1
+            self.edit_text = ""
+            self.load_todos()
+
+    def cancel_edit(self):
+        self.edit_index = -1
+        self.edit_text = ""
+
+    def toggle_complete(self, index: int):
+        todo_id = self.todos[index]["id"]
+        with rx.session() as session:
+            todo = session.get(Todo, todo_id)
+            if todo:
+                todo.completed = not todo.completed
+                session.commit()
+        self.load_todos()
 
     def on_mount(self):
         self.load_todos()
@@ -63,17 +99,34 @@ def index() -> rx.Component:
             rx.vstack(
                 rx.foreach(
                     State.todos,
-                    lambda todo, i: rx.hstack(
-                        rx.text(todo["text"], size="5"),
-                        rx.button(
-                            "Remove",
-                            on_click=lambda: State.remove_todo(i),
-                            color_scheme="red",
-                            size="2",
+                    lambda todo, i: rx.cond(
+                        State.edit_index == i,
+                        rx.hstack(
+                            rx.input(
+                                value=State.edit_text,
+                                on_change=lambda e: State.set_edit_text(e),
+                                width="250px"
+                            ),
+                            rx.button("Save", on_click=State.save_edit, color_scheme="blue"),
+                            rx.button("Cancel", on_click=State.cancel_edit, color_scheme="gray"),
+                            spacing="3"
                         ),
-                        spacing="3",
-                    ),
-                ),
+                        rx.vstack(
+                            rx.hstack(
+                                rx.text(todo["text"], size="5"),
+                                rx.button("Edit", on_click=lambda: State.start_edit(i), color_scheme="yellow", size="2"),
+                                rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
+                                rx.button("Toggle Complete", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
+                                spacing="3"
+                            ),
+                            rx.cond(
+                                todo["completed"],
+                                rx.text("Completed: ✅", size="3", color="gray"),
+                                rx.text("Completed: ❌", size="3", color="gray")
+                            )
+                        )
+                    )
+),
                 spacing="2",
                 align_items="start",
                 margin_top="20px",
