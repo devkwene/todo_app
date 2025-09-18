@@ -5,12 +5,15 @@ from .models import Todo
 
 # 1. State class to manage todos
 class State(rx.State):
-    todos: list[dict] = []  # Store todos as plain dictionaries
-    new_todo: str = ""      # Current input value
+    todos: list[dict] = []
+    new_todo: str = ""
 
-    # Fields for editing
+    # Editing fields
     edit_index: int = -1
     edit_text: str = ""
+
+    # Details view
+    selected_todo: dict | None = None
 
     def set_new_todo(self, value: str):
         self.new_todo = value
@@ -72,6 +75,16 @@ class State(rx.State):
                 session.commit()
         self.load_todos()
 
+    def view_details(self, todo_id: int):
+        with rx.session() as session:
+            todo = session.get(Todo, todo_id)
+            if todo:
+                self.selected_todo = {
+                    "id": todo.id,
+                    "text": todo.text,
+                    "completed": todo.completed
+                }
+
     def on_mount(self):
         self.load_todos()
 
@@ -81,7 +94,6 @@ def index() -> rx.Component:
         rx.color_mode.button(position="top-right"),
         rx.vstack(
             rx.heading("My Todo List", size="8"),
-            # Input and Add button
             rx.hstack(
                 rx.input(
                     placeholder="Enter a todo...",
@@ -95,38 +107,30 @@ def index() -> rx.Component:
                     color_scheme="green",
                 ),
             ),
-            # Todo list display
             rx.vstack(
                 rx.foreach(
                     State.todos,
-                    lambda todo, i: rx.cond(
-                        State.edit_index == i,
+                    lambda todo, i: rx.vstack(
                         rx.hstack(
-                            rx.input(
-                                value=State.edit_text,
-                                on_change=lambda e: State.set_edit_text(e),
-                                width="250px"
+                            rx.text(
+                                todo["text"],
+                                size="5",
+                                text_decoration=rx.cond(todo["completed"], "line-through", "none"),
+                                color=rx.cond(todo["completed"], "gray", "black")
                             ),
-                            rx.button("Save", on_click=State.save_edit, color_scheme="blue"),
-                            rx.button("Cancel", on_click=State.cancel_edit, color_scheme="gray"),
+                            rx.button("Edit", on_click=lambda: State.start_edit(i), color_scheme="yellow", size="2"),
+                            rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
+                            rx.button("Toggle", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
+                            rx.button("View", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/details")], color_scheme="blue", size="2"),
                             spacing="3"
                         ),
-                        rx.vstack(
-                            rx.hstack(
-                                rx.text(todo["text"], size="5"),
-                                rx.button("Edit", on_click=lambda: State.start_edit(i), color_scheme="yellow", size="2"),
-                                rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
-                                rx.button("Toggle Complete", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
-                                spacing="3"
-                            ),
-                            rx.cond(
-                                todo["completed"],
-                                rx.text("Completed: ✅", size="3", color="gray"),
-                                rx.text("Completed: ❌", size="3", color="gray")
-                            )
+                        rx.cond(
+                            todo["completed"],
+                            rx.text("Completed: ✅", size="3", color="gray"),
+                            rx.text("Completed: ❌", size="3", color="gray")
                         )
                     )
-),
+                ),
                 spacing="2",
                 align_items="start",
                 margin_top="20px",
@@ -135,9 +139,62 @@ def index() -> rx.Component:
             align_items="center",
             min_height="85vh",
         ),
+        rx.dialog(
+            rx.vstack(
+                rx.heading("Edit Todo"),
+                rx.input(
+                    value=State.edit_text,
+                    width="100%",
+                    on_change=lambda e: State.set_edit_text(e)
+                ),
+                rx.hstack(
+                    rx.button(
+                        "Save",
+                        color_scheme="blue",
+                        on_click=State.save_edit
+                    ),
+                    rx.button(
+                        "Cancel",
+                        color_scheme="gray",
+                        on_click=State.cancel_edit
+                    )
+                ),
+                spacing="4"
+            ),
+            is_open=State.edit_index != -1
+        ),
         on_mount=State.on_mount,
     )
 
-# 3. Register the page
+# 3. Details Page
+def details() -> rx.Component:
+    return rx.container(
+        rx.heading("Todo Details", size="7"),
+        rx.text(
+            rx.cond(
+                State.selected_todo.is_not_none(),
+                f"ID: {State.selected_todo['id']}",
+                "No todo selected"
+            )
+        ),
+        rx.text(
+            rx.cond(
+                State.selected_todo.is_not_none(),
+                f"Text: {State.selected_todo['text']}",
+                ""
+            )
+        ),
+        rx.text(
+            rx.cond(
+                State.selected_todo.is_not_none() & State.selected_todo["completed"],
+                "Completed: ✅",
+                "Completed: ❌"
+            )
+        ),
+        rx.button("Back", on_click=lambda: rx.redirect("/"), margin_top="20px")
+    )
+
+# 4. Register pages
 app = rx.App()
 app.add_page(index, title="Todo App")
+app.add_page(details, route="/details", title="Todo Details")
