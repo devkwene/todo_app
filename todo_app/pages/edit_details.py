@@ -1,9 +1,12 @@
 import reflex as rx
 from ..state import State
 
+# This page lets you edit the details of a selected task.
 def edit_details() -> rx.Component:
     return rx.container(
+        # Heading for the page
         rx.heading("Edit Details", size="7"),
+        # Show a success message if there is one
         rx.cond(
             State.success_message != "",
             rx.fragment(
@@ -12,18 +15,21 @@ def edit_details() -> rx.Component:
             ),
             rx.fragment()
         ),
+        # If a task is selected, show its details for editing
         rx.cond(
             State.selected_todo is not None,
             rx.container(
                 rx.color_mode.button(position="top-right"),
                 rx.vstack(
                     rx.heading("Edit Todo Details", size="8"),
+                    # Input for editing the task's title
                     rx.input(
                         placeholder="Edit todo text...",
                         value=State.edit_todo_text,
                         on_change=lambda e: State.set_edit_todo_text(e),
                         width="300px",
                     ),
+                    # Text area for editing the description
                     rx.text_area(
                         placeholder="Edit description...",
                         value=State.edit_todo_description,
@@ -31,6 +37,7 @@ def edit_details() -> rx.Component:
                         width="300px",
                         min_height="80px",
                     ),
+                    # Checkbox and buttons for completed, save, and back
                     rx.hstack(
                         rx.checkbox(
                             checked=State.edit_todo_completed,
