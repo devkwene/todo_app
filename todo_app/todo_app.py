@@ -115,6 +115,8 @@ class State(rx.State):
                     session.commit()
             self.selected_todo = None
             self.success_message = "✅ Todo updated successfully!"
+            return rx.redirect("/")
+
 
     def delete_selected_todo(self):
         if self.selected_todo:
