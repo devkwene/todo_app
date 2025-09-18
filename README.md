@@ -6,13 +6,11 @@ A modern, collaborative task management web app built with [Reflex](https://refl
 
 - **Add, Edit, Delete Tasks:** Create tasks, update their details, and remove them as needed.
 - **Task Details:** Click a task to view and edit its title, description, completion status, and image.
-- **Image Upload:** Attach images to tasks for better context.
 - **Live Updates:** Changes sync across browser tabs automatically.
 - **Task Filters:** View all, active, or completed tasks. Clear completed tasks with one click.
 - **Drag-and-Drop Reordering:** Rearrange tasks by dragging them; the order is saved in the database.
 - **Persistent Storage:** All tasks and details are stored in a PostgreSQL database.
 - **No User Management:** Anyone can view and manage all tasks—perfect for team or shared lists.
-- **Beautiful UI:** Gradient header, responsive layout, and modern design using Reflex components.
 
 ## How It Works
 
