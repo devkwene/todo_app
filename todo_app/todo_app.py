@@ -8,11 +8,10 @@ class State(rx.State):
     todos: list[dict] = []
     new_todo: str = ""
 
-    # Editing fields
+    # Editing fields (still present, but not used in UI)
     edit_index: int = -1
     edit_text: str = ""
 
-    # Details view
     selected_todo: dict | None = None
 
     def set_new_todo(self, value: str):
@@ -154,10 +153,9 @@ def index() -> rx.Component:
                                 text_decoration=rx.cond(todo["completed"], "line-through", "none"),
                                 color=rx.cond(todo["completed"], "gray", "black")
                             ),
-                            rx.button("Edit", on_click=lambda: State.start_edit(i), color_scheme="yellow", size="2"),
+                            rx.button("Edit", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/edit_details")], color_scheme="yellow", size="2"),
                             rx.button("Remove", on_click=lambda: State.remove_todo(i), color_scheme="red", size="2"),
                             rx.button("Toggle", on_click=lambda: State.toggle_complete(i), color_scheme="purple", size="2"),
-                            rx.button("View", on_click=lambda: [State.view_details(todo["id"]), rx.redirect("/details")], color_scheme="blue", size="2"),
                             spacing="3"
                         ),
                         rx.cond(
@@ -175,29 +173,13 @@ def index() -> rx.Component:
             align_items="center",
             min_height="85vh",
         ),
-        rx.dialog(
-            rx.vstack(
-                rx.heading("Edit Todo"),
-                rx.input(
-                    value=State.edit_text,
-                    width="100%",
-                    on_change=lambda e: State.set_edit_text(e)
-                ),
-                rx.hstack(
-                    rx.button("Save", color_scheme="blue", on_click=State.save_edit),
-                    rx.button("Cancel", color_scheme="gray", on_click=State.cancel_edit)
-                ),
-                spacing="4"
-            ),
-            is_open=State.edit_index != -1
-        ),
         on_mount=State.on_mount,
     )
 
-# 3. Enhanced Details Page
-def details() -> rx.Component:
+# 3. Edit Details Page
+def edit_details() -> rx.Component:
     return rx.container(
-        rx.heading("Task Details", size="7"),
+        rx.heading("Edit Details", size="7"),
         rx.cond(
             State.selected_todo.is_not_none(),
             rx.vstack(
@@ -233,4 +215,4 @@ def details() -> rx.Component:
 # 4. Register pages
 app = rx.App()
 app.add_page(index, title="Todo App")
-app.add_page(details, route="/details", title="Task Details")
+app.add_page(edit_details, route="/edit_details", title="Edit Details")
