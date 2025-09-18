@@ -1,3 +1,5 @@
+# app.py
+
 import reflex as rx
 from rxconfig import config
 from sqlmodel import select
@@ -12,6 +14,7 @@ class State(rx.State):
     edit_text: str = ""
 
     selected_todo: dict | None = None
+    success_message: str = ""
 
     def set_new_todo(self, value: str):
         self.new_todo = value
@@ -111,7 +114,7 @@ class State(rx.State):
                     todo.completed = self.selected_todo["completed"]
                     session.commit()
             self.selected_todo = None
-            rx.redirect("/")
+            self.success_message = "✅ Todo updated successfully!"
 
     def delete_selected_todo(self):
         if self.selected_todo:
@@ -124,6 +127,7 @@ class State(rx.State):
             rx.redirect("/")
 
     def on_mount(self):
+        self.success_message = ""
         self.load_todos()
 
 # 2. Main UI
@@ -132,6 +136,10 @@ def index() -> rx.Component:
         rx.color_mode.button(position="top-right"),
         rx.vstack(
             rx.heading("My Todo List", size="8"),
+            rx.cond(
+                State.success_message != "",
+                rx.text(State.success_message, color="green", font_weight="bold", margin_bottom="10px"),
+            ),
             rx.hstack(
                 rx.input(
                     placeholder="Enter a todo...",
@@ -180,6 +188,13 @@ def index() -> rx.Component:
 def edit_details() -> rx.Component:
     return rx.container(
         rx.heading("Edit Details", size="7"),
+        rx.cond(
+            State.success_message != "",
+            rx.fragment(
+                rx.text(State.success_message, color="green", font_weight="bold"),
+                rx.script("setTimeout(() => window.location.href = '/', 1500);")
+            ),
+        ),
         rx.cond(
             State.selected_todo.is_not_none(),
             rx.vstack(
